@@ -2732,10 +2732,20 @@ refresh:
         SDL_PumpEvents();
     }
 	void *p = event->user.data1;
+	int nType = event->type;
 	if (event->user.data1 != m_vsData)
 	{
-		if (event->type == SDL_WINDOWEVENT)
+		switch(event->type)
 		{
+		case SDL_WINDOWEVENT:
+		case SDL_MOUSEMOTION:
+		case SDL_MOUSEBUTTONUP:
+		case SDL_MOUSEBUTTONDOWN:
+			goto refresh;
+		}
+		if (nType == FF_FULLSCREEN)
+		{
+			int i = 0;
 			return;
 		}
 		SDL_PushEvent(event);
@@ -2777,6 +2787,7 @@ int  event_loop(void * arg)
 	VideoState *cur_stream =pMedia->m_vsData;
     SDL_Event event;
     double incr, pos, frac;
+	char *dropped_filedir;
 
     for (;;) {
         double x;
@@ -2801,6 +2812,10 @@ int  event_loop(void * arg)
             case SDLK_q:
                 pMedia->do_exit(cur_stream);
                 break;
+			case FF_FULLSCREEN:
+				pMedia->toggle_full_screen(cur_stream);
+				cur_stream->force_refresh = 1;
+				break;
             case SDLK_f:
                 pMedia->toggle_full_screen(cur_stream);
                 cur_stream->force_refresh = 1;
@@ -2957,6 +2972,11 @@ int  event_loop(void * arg)
         case FF_QUIT_EVENT:
             pMedia->do_exit(cur_stream);
             break;
+		case SDL_DROPFILE:       // In case if dropped file
+			dropped_filedir = event.drop.file;
+			// Shows directory of dropped file
+			SDL_free(dropped_filedir);    // Free dropped_filedir memory
+			break;			 
         case FF_ALLOC_EVENT:
             pMedia->alloc_picture((VideoState *)event.user.data1, (AVFrame *)event.user.data2);
             break;
@@ -3042,7 +3062,7 @@ int CMedia::OpenFile(char * filename)
     if (display_disable) {
         video_disable = 1;
     }
-    flags = SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER|SDL_INIT_EVENTS;
+    flags = SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER;
     if (audio_disable)
         flags &= ~SDL_INIT_AUDIO;
     //if (display_disable)

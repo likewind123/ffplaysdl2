@@ -336,6 +336,7 @@ typedef struct VideoState {
 
 #define FF_ALLOC_EVENT   (SDL_USEREVENT)
 #define FF_QUIT_EVENT    (SDL_USEREVENT + 2)
+#define FF_FULLSCREEN    (SDL_USEREVENT + 3)
 
 
 class CMedia
@@ -425,7 +426,11 @@ private:
 	void stream_cycle_channel(VideoState *is, int codec_type);
 	void packet_queue_destroy(PacketQueue *q);
 	int video_open(VideoState *is, int force_set_video_mode, Frame *vp);
-	
+public:
+	VideoState * GetIs()
+	{
+		return m_vsData;
+	}
 private:
 
 	VideoState *m_vsData;
