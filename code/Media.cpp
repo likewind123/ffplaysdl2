@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 #include "Media.h"
 
+std::map <void * ,int> CMedia::media_map;
 int CMedia::nWindowId = 1;
 
 CMedia::CMedia(void)
@@ -536,16 +537,18 @@ void  CMedia::calculate_display_rect(SDL_Rect *rect,
 
 void  CMedia::video_image_display(VideoState *is)
 {
-    Frame *vp;
-    Frame *sp;
+    Frame *vp = NULL;
+    Frame *sp = NULL;
     int i;
-	
+	if (bStopDraw)
+	{
+		return;
+	}
     vp = frame_queue_peek(&is->pictq);
     if (vp->bmp) {
         if (is->subtitle_st) {
             if (frame_queue_nb_remaining(&is->subpq) > 0) {
                 sp = frame_queue_peek(&is->subpq);
-
                 if (vp->pts >= sp->pts + ((float) sp->sub.start_display_time / 1000)) {
 
                     for (i = 0; i < sp->sub.num_rects; i++){
@@ -569,12 +572,14 @@ void  CMedia::video_image_display(VideoState *is)
 
                 }
             }
+			
         }
 		
-		//SDL_SetRenderDrawColor(render, 0, 0, 0, 255);	
 		SDL_RenderClear(render);
 		SDL_RenderCopy(render, vp->bmp, NULL, NULL);
 		SDL_RenderPresent(render);
+		//SDL_SetRenderDrawColor(render, 0, 0, 0, 255);	
+		
     }
 }
 
@@ -810,10 +815,10 @@ int CMedia::video_open(VideoState *is, int force_set_video_mode, Frame *vp)
 			do_exit(is);
 		}
 
-		render = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE); 
+		render = SDL_CreateRenderer(win, 3, SDL_RENDERER_SOFTWARE); 
 	}
 	CRect rect;
-	 GetWindowRect(m_hWnd,rect);
+	GetWindowRect(m_hWnd,rect);
 	SDL_SetWindowSize(win, rect.Width(), rect.Height());
 	//SDL_SetWindowFullscreen(win, flags); 
 
@@ -2695,8 +2700,14 @@ void CMedia::toggle_full_screen(VideoState *is)
     for (i = 0; i < VIDEO_PICTURE_QUEUE_SIZE; i++)
         is->pictq.queue[i].reallocate = 1;
 #endif
+	//SDL_DestroyRenderer(render);
+	//SDL_DestroyWindow(win);
+	//win = NULL;
+	
     is_full_screen = !is_full_screen;
+	//SDL_SetWindowFullscreen(win,is_full_screen );
     video_open(is, 1, NULL);
+	//SDL_ShowWindow(win);
 }
 
 void CMedia::toggle_audio_display(VideoState *is)
@@ -2735,20 +2746,28 @@ refresh:
 	int nType = event->type;
 	if (event->user.data1 != m_vsData)
 	{
+		std::map <void *,int>::iterator it = media_map.find(p);
+		if (it!= media_map.end())
+		{
+			SDL_PushEvent(event);
+			goto refresh;
+		}
 		switch(event->type)
 		{
 		case SDL_WINDOWEVENT:
 		case SDL_MOUSEMOTION:
 		case SDL_MOUSEBUTTONUP:
 		case SDL_MOUSEBUTTONDOWN:
+		case SDL_TEXTEDITING:
+		case SDL_KEYDOWN:
+		case SDL_AUDIODEVICEADDED:
+		case SDL_USEREVENT:
+		case SDL_CLIPBOARDUPDATE:
 			goto refresh;
 		}
-		if (nType == FF_FULLSCREEN)
-		{
-			int i = 0;
-			return;
-		}
-		SDL_PushEvent(event);
+		char buf[100];
+		sprintf(buf,"Î´ÖªÊÂ¼þ:%d",nType);
+		IOHelper::AddErrMsg(0,buf);
 		goto refresh;
 	}
 }
@@ -3101,7 +3120,7 @@ int CMedia::OpenFile(char * filename)
 	int pid =0;
 	 SDL_CreateThread(event_loop, "read thread", this);
    
-
+	 media_map[m_vsData] = nWindowId;
     /* never returns */
 
     return pid;

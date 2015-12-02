@@ -5,7 +5,8 @@
 #define CONFIG_RTSP_DEMUXER 0
 #define CONFIG_MMSH_PROTOCOL 0
 //#define DEBUG 1
-
+#include "IOHelper.h"
+#include <map>
 extern "C"
 {
 
@@ -419,7 +420,7 @@ private:
 	void stream_component_close(VideoState *is, int stream_index);
 	int is_realtime(AVFormatContext *s);
 	VideoState *stream_open(const char *filename, AVInputFormat *iformat);
-	void toggle_full_screen(VideoState *is);
+	
 	void toggle_audio_display(VideoState *is);
 	void refresh_loop_wait_event(VideoState *is, SDL_Event *event);
 	void seek_chapter(VideoState *is, int incr);
@@ -427,10 +428,13 @@ private:
 	void packet_queue_destroy(PacketQueue *q);
 	int video_open(VideoState *is, int force_set_video_mode, Frame *vp);
 public:
+	void toggle_full_screen(VideoState *is);
 	VideoState * GetIs()
 	{
 		return m_vsData;
 	}
+public:
+	bool bStopDraw;
 private:
 
 	VideoState *m_vsData;
@@ -497,6 +501,9 @@ private:
 	 SDL_Surface *screen; /*dumpy*/
 	 static int nWindowId;
 	 int nNOWId;
+public:
+	 static std::map <void * ,int> media_map;
+
 
 };
 
