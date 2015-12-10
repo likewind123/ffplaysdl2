@@ -10,21 +10,25 @@ CMedia::CMedia(void)
 	nWindowId ++;
 	m_vsData = NULL;
 	file_iformat = NULL;
-	 fs_screen_width;
-	 fs_screen_height;
+	window_title = NULL;
+	 fs_screen_width =0;
+	 fs_screen_height =0;
 	 default_width  = 640;
 	 default_height = 480;
 	 screen_width  = 0;
 	 screen_height = 0;
-	 audio_disable;
-	 video_disable;
+	 audio_disable = 0;
+	 video_disable = 0;
+	 win = NULL;
+	 render = NULL;
+	 screen =  NULL; 
 	 subtitle_disable;
 	 for (int i=0;i<AVMEDIA_TYPE_NB;i++)
 	 {
 		wanted_stream[i] = 0;
 	 }
 	  seek_by_bytes = -1;
-	  display_disable;
+	  display_disable = 0;
 	  show_status = 1;
 	  av_sync_type = AV_SYNC_AUDIO_MASTER;
 	  start_time = AV_NOPTS_VALUE;
@@ -33,9 +37,9 @@ CMedia::CMedia(void)
 	  genpts = 0;
 	  lowres = 0;
 	  decoder_reorder_pts = -1;
-	  autoexit;
-	  exit_on_keydown;
-	  exit_on_mousedown;
+	  autoexit = 0;
+	  exit_on_keydown = 0;
+	  exit_on_mousedown = 0;
 	  loop = 1;
 	  framedrop = -1;
 	  infinite_buffer = -1;
@@ -44,15 +48,23 @@ CMedia::CMedia(void)
 	 subtitle_codec_name = NULL;
 	 video_codec_name = NULL;
 	 rdftspeed = 0.02;
-	  cursor_last_shown;
+	  cursor_last_shown =0;
 	  cursor_hidden = 0;
+	  sws_flags =0;
 #if CONFIG_AVFILTER
 	 static const char **vfilters_list = NULL;
 	  nb_vfilters = 0;
 	 static char *afilters = NULL;
 #endif
 	  autorotate = 1;
+	  is_full_screen = 0;
+	  subtitle_disable =0;
+	  bStopDraw = FALSE;
+	  dummy = 0;
 	
+	  audio_callback_time = 0;
+	  flush_pkt.buf = NULL;
+	  input_filename = NULL;
 }
 
 
@@ -1199,9 +1211,15 @@ int CMedia::do_scale_picture(VideoState *is, Frame *vp, AVFrame *src_frame)
 	is->img_convert_ctx = sws_getCachedContext(is->img_convert_ctx,
 			vp->width, vp->height, (enum AVPixelFormat)src_frame->format, vp->width, vp->height,
 			AV_PIX_FMT_YUV420P, sws_flags, NULL, NULL, NULL);
+
+	/*sws_getCachedContext(is->img_convert_ctx,vp->width, vp->height,  
+		//PIX_FMT_YUV420P,pCodecCtx->width,pCodecCtx->height,pCodecCtx->pix_fmt,  
+		pCodecCtx->pix_fmt,pCodecCtx->width,pCodecCtx->height,PIX_FMT_RGB24 ,  
+		SWS_X ,NULL,NULL,NULL) ;  */
 	if (!is->img_convert_ctx) {
 		av_log(NULL, AV_LOG_FATAL, "Cannot initialize the conversion context\n");
-		exit(1);
+		//exit(1);
+		return 0;
 	}
 	sws_scale(is->img_convert_ctx, src_frame->data, src_frame->linesize,
 			0, vp->height, pict->data, pict->linesize);
@@ -2763,6 +2781,7 @@ refresh:
 		case SDL_AUDIODEVICEADDED:
 		case SDL_USEREVENT:
 		case SDL_CLIPBOARDUPDATE:
+		case SDL_DROPFILE:
 			goto refresh;
 		}
 		char buf[100];
@@ -3129,6 +3148,37 @@ int CMedia::OpenFile(char * filename)
 void CMedia::SetHWND( HWND param1 )
 {
 	m_hWnd = param1;
+}
+
+void CMedia::DoSeek( double dInc )
+{
+	if (NULL == m_vsData)
+		return ;
+
+	double pos = 0;
+	if (seek_by_bytes) {
+		pos = -1;
+		if (pos < 0 && m_vsData->video_stream >= 0)
+			pos = frame_queue_last_pos(&m_vsData->pictq);
+		if (pos < 0 && m_vsData->audio_stream >= 0)
+			pos = frame_queue_last_pos(&m_vsData->sampq);
+		if (pos < 0)
+			pos = avio_tell(m_vsData->ic->pb);
+		if (m_vsData->ic->bit_rate)
+			dInc *= m_vsData->ic->bit_rate / 8.0;
+		else
+			dInc *= 180000.0;
+		pos += dInc;
+		stream_seek(m_vsData, pos, dInc, 1);
+	} else {
+		pos = get_master_clock(m_vsData);
+		if (isnan(pos))
+			pos = (double)m_vsData->seek_pos / AV_TIME_BASE;
+		pos += dInc;
+		if (m_vsData->ic->start_time != AV_NOPTS_VALUE && pos < m_vsData->ic->start_time / (double)AV_TIME_BASE)
+			pos = m_vsData->ic->start_time / (double)AV_TIME_BASE;
+		stream_seek(m_vsData, (int64_t)(pos * AV_TIME_BASE), (int64_t)(dInc * AV_TIME_BASE), 0);
+	}
 }
 
 

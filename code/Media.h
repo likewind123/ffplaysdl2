@@ -427,6 +427,7 @@ private:
 	void stream_cycle_channel(VideoState *is, int codec_type);
 	void packet_queue_destroy(PacketQueue *q);
 	int video_open(VideoState *is, int force_set_video_mode, Frame *vp);
+	void DoSeek(double dInc);
 public:
 	void toggle_full_screen(VideoState *is);
 	VideoState * GetIs()
